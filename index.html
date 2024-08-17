@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floating Draggable Modal</title>
+    <!--
+    Author: Sasa Mora Roca
+    GitHub: https://github.com/Sabata79
+    Date: August 2024
+
+    Description:
+    This code implements a floating, draggable modal that features a progress bar and text. 
+    The modal can be minimized to a smaller view that only displays the "Progressing..." text and buttons for minimizing and closing.
+    When minimized, the progress bar and detailed text are hidden. The modal is fully draggable, allowing users to move it around the screen.
+
+    Summary of the Code:
+    - Modal Styles and Functionality: This code creates a floating, draggable modal with a progress bar and text that can be minimized and closed.
+    - Drag-and-Drop Functionality: The dragElement function allows the modal to be dragged around the screen.
+    - Minimizing the Modal: The minimizeModal function toggles between a minimized and normal state, hiding or showing the progress bar and adjusting the layout accordingly.
+    - Closing the Modal: The closeModal function hides the modal entirely when the close button is clicked.
+
+    License: Free for personal and commercial use. No attribution required.
+    -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 200vh;
+            background-image: url('https://via.placeholder.com/800x600.png');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .background-text {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -40%);
+            font-size: 48px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Styles for the floating modal */
+        .floating-modal {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 240px;
+            height: 240px;
+            background-color: rgba(255, 255, 255, 0.294);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            cursor: move;
+            padding: 10px;
+            transition: width 0.3s, height 0.3s, padding 0.3s;
+            overflow: hidden;
+        }
+
+        .minimized-modal {
+            width: auto;
+            /* Allow the modal width to adapt to its content */
+            height: 40px;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: move;
+        }
+
+        .progress-bar-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: none;
+            outline: none;
+            box-shadow: none;
+        }
+
+        .progress-text {
+            /* Adjust font size for full state */
+            font-size: 14px;   
+            position: absolute;
+            z-index: 2;
+            text-align: center;
+            margin: 5px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+        }
+
+        .progress-text.minimized-text {
+            display: none;
+            /* Only shown when minimized */
+            position: static;
+            transform: none;
+            margin: 0;
+            flex: 1;
+            text-align: left;
+            padding-left: 10px;
+            /* Adjust font size for minimized state */
+            font-size: 14px;
+            padding-top: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* Adds ellipsis if text is too long */
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 15px;
+            left: -10px;
+            border-radius: 50%;
+            border: 12px solid transparent;
+            border-top-color: #4caf50;
+            animation: spin 2s linear infinite;
+            z-index: 1;
+        }
+
+        .progress-bar.hidden {
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .close-btn,
+        .minimize-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            z-index: 3;
+            margin-left: 5px;
+        }
+
+        .close-btn {
+            margin-left: 5px;
+            background-color: #f44336;
+        }
+
+        .minimize-btn {
+            background-color: #4caf50;
+        }
+
+        .modal-controls {
+            display: flex;
+            justify-content: flex-end;
+            /* Align buttons to the right */
+        }
+
+        .modal-controls.minimized {
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .modal-controls.minimized .progress-text.minimized-text {
+            display: inline-block;
+        }
+
+        .modal-controls.minimized .close-btn,
+        .modal-controls.minimized .minimize-btn {
+            order: 1;
+        }
+
+        .modal-controls.minimized .progress-text.minimized-text {
+            order: 0;
+        }
+
+       /* Styles for the reopen button */
+        .reopen-btn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 20px rgba(76, 175, 80, 0.6);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 20px rgba(76, 175, 80, 0.6);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 15px rgba(76, 175, 80, 1), 0 0 30px rgba(76, 175, 80, 0.8);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 20px rgba(76, 175, 80, 0.6);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-text">Background Content</div>
+
+    <!-- Floating Modal -->
+    <div id="floating-modal" class="floating-modal">
+        <div class="modal-controls" id="modal-controls">
+            <!-- Minimized progress text -->
+            <div class="progress-text minimized-text" id="progress-text">Progressing..</div>
+            <!-- Minimize and Close buttons -->
+            <button class="minimize-btn" onclick="minimizeModal()">-</button>
+            <button class="close-btn" onclick="closeModal()">X</button>
+        </div>
+        <div class="progress-bar-container" id="modal-content">
+            <!-- Spinning progress bar -->
+            <div class="progress-bar" id="progress-bar"></div>
+            <!-- Full progress text in the center -->
+            <div class="progress-text" id="progress-text-full">
+                <p>Progressing..<br>Please wait.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Button to reopen the modal -->
+    <button id="reopen-btn" class="reopen-btn" onclick="reopenModal()">Reopen Modal</button>
+
+<script>
+        // Function to enable dragging of the modal
+        dragElement(document.getElementById("floating-modal"));
+
+        function dragElement(elmnt) {
+            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            elmnt.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // Calculate the new cursor position
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                // Set the element's new position
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                // Stop moving when mouse button is released
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            document.getElementById('floating-modal').style.display = 'none';
+            document.getElementById('reopen-btn').style.display = 'block'; // Show the reopen button
+        }
+
+        // Function to reopen the modal
+        function reopenModal() {
+            const modal = document.getElementById('floating-modal');
+            modal.style.display = 'block';
+            document.getElementById('reopen-btn').style.display = 'none'; // Hide the reopen button
+
+            // Ensure modal is restored to full size
+            if (modal.classList.contains('minimized-modal')) {
+                modal.classList.remove('minimized-modal');
+                const modalControls = document.getElementById('modal-controls');
+                const progressBarContainer = document.getElementById('modal-content');
+                const progressTextFull = document.getElementById('progress-text-full');
+                const progressTextMinimized = document.getElementById('progress-text');
+
+                modalControls.classList.remove('minimized');
+                progressBarContainer.style.display = 'flex';
+                progressTextFull.style.display = 'block';
+                progressTextMinimized.style.display = 'none';
+            }
+        }
+
+        // Function to minimize the modal
+        function minimizeModal() {
+            const modal = document.getElementById('floating-modal');
+            const modalControls = document.getElementById('modal-controls');
+            const progressBarContainer = document.getElementById('modal-content');
+            const progressTextFull = document.getElementById('progress-text-full');
+            const progressTextMinimized = document.getElementById('progress-text');
+
+            if (modal.classList.contains('minimized-modal')) {
+                // Restore modal size
+                modal.classList.remove('minimized-modal');
+                modalControls.classList.remove('minimized');
+                progressBarContainer.style.display = 'flex';
+                progressTextFull.style.display = 'block';
+                progressTextMinimized.style.display = 'none';
+                modal.style.cursor = 'move'; // Enable dragging
+            } else {
+                // Minimize modal and only show "Progressing.." text and buttons
+                modal.classList.add('minimized-modal');
+                modalControls.classList.add('minimized');
+                progressBarContainer.style.display = 'none';
+                progressTextFull.style.display = 'none';
+                progressTextMinimized.style.display = 'inline-block';
+                modal.style.cursor = 'move'; // Enable dragging
+            }
+        }
+
+    </script>
+</body>
+
+</html>
